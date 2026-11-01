@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SA-BiLSTM Fake News Detection: live ONNX demo</title>
+<meta name="description" content="Browser demo of an SA-BiLSTM fake news classifier trained on ISOT, running with ONNX Runtime Web, with batch-32 latency and throughput.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="frame masthead">
+  <img src="assets/vit-logo.png" alt="Vellore Institute of Technology" width="200">
+  <div>
+    <h1>School of Electronics Engineering (SENSE)</h1>
+    <p>Vellore Institute of Technology &nbsp;|&nbsp; B.Tech. Electronics &amp; Communication Engineering</p>
+  </div>
+</header>
+
+<section class="titlebar">
+  <h2>Performance Benchmarking of SA-BiLSTM Based Fake News Detection Using OpenVINO Framework</h2>
+  <p>Live demo: the same trained model, running in your browser</p>
+</section>
+
+<main>
+
+<section class="card" id="try">
+  <h3 class="bar">Check one article</h3>
+  <div class="body two">
+    <div>
+      <label for="article">Paste a news article (English). Only the first 300 words are used.</label>
+      <textarea id="article" rows="9" placeholder="Paste the headline and text of a news article here..."></textarea>
+      <div class="row">
+        <button id="classify" disabled>Classify</button>
+        <button id="clear" class="plain" type="button">Clear</button>
+        <span id="modelstate" class="muted">Loading model...</span>
+      </div>
+    </div>
+    <div id="single" class="verdict empty" aria-live="polite">
+      <span class="label">Result</span>
+      <strong id="single-verdict">Waiting for input</strong>
+      <span id="single-detail" class="muted">The model outputs a fake-probability. 0.50 or above is called fake.</span>
+      <div class="meter" hidden><i id="single-meter"></i></div>
+    </div>
+  </div>
+</section>
+
+<section class="card" id="batch">
+  <h3 class="bar">Batch of 32 articles: speed on this device</h3>
+  <div class="body">
+    <p class="lead">Press the button to draw 32 random articles from the ISOT <em>test</em> split, which the model never saw during training. They go through the model as <strong>one batch</strong>, which is the same setup as our CPU benchmark.</p>
+    <div class="row">
+      <button id="runbatch" disabled>Run batch of 32</button>
+      <button id="shuffle" class="plain" disabled>Draw new articles</button>
+      <span id="batchstate" class="muted"></span>
+    </div>
+    <progress id="prog" max="1" value="0" hidden></progress>
+
+    <div class="stats" id="stats" hidden>
+      <div><span>Batch latency (mean)</span><b id="s-mean">-</b><small>ms per batch of 32</small></div>
+      <div><span>Median</span><b id="s-med">-</b><small>ms</small></div>
+      <div><span>95th percentile</span><b id="s-p95">-</b><small>ms</small></div>
+      <div><span>Throughput</span><b id="s-thr">-</b><small>articles per second</small></div>
+      <div><span>Accuracy on these 32</span><b id="s-acc">-</b><small id="s-acc-d"></small></div>
+    </div>
+    <p class="muted" id="device" hidden></p>
+
+    <div class="tablewrap" id="tablewrap" hidden>
+      <table id="results">
+        <thead><tr><th>#</th><th>Article (start)</th><th>True label</th><th>Model says</th><th>P(fake)</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="card" id="compare">
+  <h3 class="bar">Our CPU benchmark (batch of 32)</h3>
+  <div class="body">
+    <p class="lead">Measured once in Python on one laptop, mean latency per batch of 32 articles, using the same pre-tokenised inputs for every runtime. Lower latency and higher throughput are better.</p>
+    <div id="chart"></div>
+    <p class="note"><b>Setup:</b> Intel Core i5-1135G7 (11th Gen, 8 threads), 8 GB RAM, Windows 11, OpenVINO 2024.6. OpenVINO FP16 is the fastest at about 1.56&times; PyTorch; OpenVINO FP32 is 1.43&times; and ONNX Runtime 1.37&times;.</p>
+    <p class="note" id="yourrow-note" hidden><b>Your browser row</b> uses ONNX Runtime Web (WebAssembly) on your own device. It is a different runtime and a different machine, so use it to see how the same model behaves on your hardware, not as an OpenVINO comparison.</p>
+  </div>
+</section>
+
+<section class="card two-col" id="about">
+  <div>
+    <h3 class="bar">About the model</h3>
+    <div class="body">
+      <ul>
+        <li>Embedding (10,000 &times; 100) &rarr; BiLSTM (100 per direction) &rarr; scaled self-attention &rarr; masked mean pooling &rarr; Dropout 0.3 &rarr; Linear (200, 1).</li>
+        <li>1.16 million parameters. ONNX file: 4.44 MB.</li>
+        <li>Trained in PyTorch on ISOT (39,103 articles after removing duplicates), 70/15/15 split, sequence length 300.</li>
+      </ul>
+      <table class="mini">
+        <tr><th>Test metric (5,866 articles)</th><th>Value</th></tr>
+        <tr><td>Accuracy</td><td>99.25%</td></tr>
+        <tr><td>Precision</td><td>99.44%</td></tr>
+        <tr><td>Sensitivity (recall)</td><td>98.92%</td></tr>
+        <tr><td>Specificity</td><td>99.53%</td></tr>
+        <tr><td>F1-score</td><td>99.18%</td></tr>
+      </table>
+    </div>
+  </div>
+  <div>
+    <h3 class="bar">Where this fits</h3>
+    <div class="body">
+      <img src="assets/pipeline.png" alt="Pipeline: trained model to ONNX to OpenVINO to FPGA" class="pipeline">
+      <p class="note">Done: model training &rarr; ONNX &rarr; OpenVINO (CPU). Future work: the Intel FPGA AI Suite stage and the Agilex 7 FPGA board. This page runs the ONNX stage in the browser.</p>
+    </div>
+  </div>
+</section>
+
+<section class="card" id="limits">
+  <h3 class="bar">Read this before quoting the numbers</h3>
+  <div class="body">
+    <ul>
+      <li>ISOT articles carry strong style cues (for example agency bylines in genuine articles). A high score on ISOT does not mean the model will catch fake news from other sources.</li>
+      <li>Speed on this page depends on your device, browser and whether it can use several threads. Compare devices with each other, not with the CPU table.</li>
+      <li>Latency is per batch of 32 articles. Per-article time is that number divided by 32.</li>
+      <li>Tokenising the text is done before timing starts, so the numbers cover model inference only.</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer class="frame foot">
+  <p><b>Team:</b> Kaarmukilan A G (23BEC0137), Rohith S (23BEC0350), Sanjay Elavarasan Karthikeyan (23BEC0503) &nbsp;|&nbsp; <b>Guide:</b> Dr. Sivasankaran K, Professor, Dept. of Micro &amp; Nano Electronics, SENSE, VIT</p>
+</footer>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
