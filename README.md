@@ -1,51 +1,55 @@
 # Performance Benchmarking of SA-BiLSTM Based Fake News Detection Using OpenVINO Framework
 
-School of Electronics Engineering (SENSE), VIT
-Kaarmukilan A G (23BEC0137), Rohith S (23BEC0350), Sanjay Elavarasan Karthikeyan (23BEC0503)
-Guide: Dr. Sivasankaran K
+**Live demo (browser):** a static web page that runs the trained SA-BiLSTM fake news classifier directly in the visitor's browser and reports the latency and throughput of a batch of 32 articles.
 
-A static web demo of our trained SA-BiLSTM fake news classifier. The model runs in the visitor's browser (ONNX Runtime Web), so no server is needed and no text is sent anywhere.
+School of Electronics Engineering (SENSE), Vellore Institute of Technology
+B.Tech. Electronics & Communication Engineering
 
-## What it does
-- **Classify an article:** paste text, or load a random fake or genuine article from the ISOT test set. Shows P(fake) and, for random articles, the true label.
-- **Batch of 32:** runs 32 test articles through the model in one call and reports latency (ms per batch of 32) and throughput (articles per second = 32 ÷ latency).
-- **Benchmark chart:** compares our CPU results for PyTorch, ONNX Runtime and OpenVINO with the visitor's own run.
+| Team member | Reg. no. |
+|---|---|
+| Kaarmukilan A G | 23BEC0137 |
+| Rohith S | 23BEC0350 |
+| Sanjay Elavarasan Karthikeyan | 23BEC0503 |
 
-## Model and results
-Embedding → BiLSTM (100 per direction) → scaled self-attention → masked mean pooling → Linear. 1.16 M parameters, 4.44 MB (ONNX). Trained in PyTorch on ISOT (39,103 articles, 70/15/15 split, sequence length 300).
+Guide: Dr. Sivasankaran K, Professor, Dept. of Micro & Nano Electronics, SENSE, VIT
 
-Test set (5,866 articles): accuracy 99.25%, precision 99.44%, recall 98.92%, F1 99.18%.
+---
 
-CPU benchmark, batch of 32 (Intel Core i5-1135G7, 8 threads, OpenVINO 2024.6):
+## The work
 
-| Runtime | Latency (ms) | Throughput (articles/s) |
+We trained a Bi-LSTM model with self-attention (SA-BiLSTM) in PyTorch to tell genuine news from fake news on the ISOT dataset (39,103 articles after removing duplicates). The model has 1.16 million parameters and is 4.44 MB as an ONNX file.
+
+The model was then exported to ONNX and run on a CPU with PyTorch, ONNX Runtime and OpenVINO (FP32 and FP16) to compare latency and throughput. This site runs the same ONNX model in the browser: classify an article (or pick a random fake or genuine one from the test set) and time a batch of 32 articles on your own device.
+
+A batch of 32 means 32 articles processed together in one model call. Latency is the time for that call, and throughput is 32 divided by that latency.
+
+## Results
+
+**Accuracy** on 5,866 held-out test articles:
+
+| Accuracy | Precision | Sensitivity | Specificity | F1-score |
+|---|---|---|---|---|
+| 99.25% | 99.44% | 98.92% | 99.53% | 99.18% |
+
+Confusion matrix: TN 3165, FP 15, FN 29, TP 2657.
+
+**Speed** on an Intel Core i5-1135G7 (8 threads), batch of 32:
+
+| Runtime | Latency (ms per batch) | Throughput (articles/s) |
 |---|---|---|
 | PyTorch | 160.3 | 200 |
 | ONNX Runtime | 116.7 | 274 |
 | OpenVINO FP32 | 111.8 | 286 |
 | OpenVINO FP16 | 102.6 | 312 |
 
-## Run locally
-Double-clicking `index.html` does not work (the browser blocks loading the model from a file). Serve the folder:
-
-```
-python -m http.server 8000
-```
-
-then open http://localhost:8000.
-
-## Deploy
-- **Vercel (recommended):** import the repo, preset **Other**, root `./`, no build settings. Done.
-- **GitHub Pages:** Settings → Pages → `main` / root.
-
-## Why speed differs between hosts
-Multi-threaded WebAssembly needs two headers, which `vercel.json` sends. Vercel therefore runs on several threads. `python -m http.server` and GitHub Pages do not send them, so the model runs on one thread and latency is about 2–3× higher. The page shows how many threads were used. Quote the Vercel numbers.
-
-## Files
-`index.html`, `style.css`, `app.js` (page and inference) · `vercel.json` (headers) · `assets/` (`sa_bilstm.onnx`, `vocabulary.json`, `demo_samples.json`, `ort/` runtime).
+OpenVINO FP16 is the fastest, about 1.56× faster than PyTorch.
 
 ## Notes
-- The OpenVINO `.xml`/`.bin` files are not used in the browser; the OpenVINO and PyTorch rows are our measured results.
-- Browser speed depends on the device, so compare devices with each other, not with the OpenVINO rows.
-- ISOT is an easy dataset and the model expects full news articles; very short or non-news text gives unreliable results.
-- Future work: Intel Agilex 7 FPGA deployment.
+
+- Browser speed depends on your device, and the browser runs ONNX Runtime Web, not OpenVINO, so it is not directly comparable to the table above.
+- ISOT articles have strong source cues, so 99% accuracy on ISOT does not guarantee the same on news from other sources.
+- Future work: run the model on the Intel Agilex 7 FPGA board.
+
+---
+
+**About the website:** a small static page (HTML, CSS and JavaScript, no server) where you paste a news article or pick a random fake or genuine one from the ISOT test set. The model, running locally in your browser through ONNX Runtime Web, says whether it is fake or genuine, and a "Run batch of 32" button measures latency and throughput on your device and compares them with our CPU benchmark.
