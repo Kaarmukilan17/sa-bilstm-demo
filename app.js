@@ -1,4 +1,5 @@
-import * as ort from "./assets/ort/ort.wasm.min.mjs";
+window.__appStarted = true;
+let ort = null;
 
 const MAX_LEN = 300;
 const BATCH = 32;
@@ -50,7 +51,16 @@ async function predict(tensor) {
 /* ---------- setup ---------- */
 async function init() {
   const base = new URL("./assets/", import.meta.url);
-  ort.env.wasm.wasmPaths = new URL("ort/", base).href;
+  try {
+    ort = await import(new URL("ort/ort.min.js", base).href);
+  } catch (e) {
+    $("modelstate").textContent = "Could not load ONNX Runtime Web: " + e.message;
+    return;
+  }
+  ort.env.wasm.wasmPaths = {
+    mjs: new URL("ort/ort-wasm-simd-threaded.js", base).href,
+    wasm: new URL("ort/ort-wasm-simd-threaded.wasm", base).href,
+  };
   ort.env.wasm.numThreads = self.crossOriginIsolated
     ? Math.min(navigator.hardwareConcurrency || 2, 4)
     : 1;
@@ -80,6 +90,7 @@ async function init() {
   } catch {
     samples = [];
   }
+  if (samples.length) ["rand-real", "rand-fake", "rand-any"].forEach((id) => ($(id).disabled = false));
   if (samples.length >= BATCH) {
     $("runbatch").disabled = false;
     $("shuffle").disabled = false;
@@ -93,7 +104,19 @@ async function init() {
 }
 
 /* ---------- single article ---------- */
-$("classify").addEventListener("click", async () => {
+let truth = null; // dataset label of the article currently in the box (null for pasted text)
+
+function showTruth(p) {
+  const el = $("single-truth");
+  if (truth === null) { el.hidden = true; return; }
+  const predFake = p >= 0.5;
+  const agree = predFake === (truth === 1);
+  el.hidden = false;
+  el.className = "truth " + (agree ? "ok" : "bad");
+  el.textContent = `Dataset label: ${truth === 1 ? "Fake" : "Genuine"}. The model is ${agree ? "correct" : "wrong"} on this article.`;
+}
+
+async function classifyCurrent() {
   const text = $("article").value.trim();
   if (!text) return;
   const [p] = await predict(makeTensor([encode(text)]));
@@ -102,16 +125,37 @@ $("classify").addEventListener("click", async () => {
   box.className = "verdict " + (fake ? "fake" : "real");
   $("single-verdict").textContent = fake ? "Likely FAKE" : "Likely GENUINE";
   $("single-detail").textContent = `P(fake) = ${p.toFixed(3)}  |  P(genuine) = ${(1 - p).toFixed(3)}`;
-  const meter = box.querySelector(".meter");
-  meter.hidden = false;
+  box.querySelector(".meter").hidden = false;
   $("single-meter").style.width = (p * 100).toFixed(1) + "%";
-});
-$("clear").addEventListener("click", () => {
-  $("article").value = "";
+  showTruth(p);
+}
+
+function resetResult() {
   $("single").className = "verdict empty";
   $("single-verdict").textContent = "Waiting for input";
   $("single-detail").textContent = "The model outputs a fake-probability. 0.50 or above is called fake.";
   $("single").querySelector(".meter").hidden = true;
+  $("single-truth").hidden = true;
+}
+
+async function pickRandom(want) {
+  const pool = want === null ? samples : samples.filter((s) => Number(s.label) === want);
+  if (!pool.length) return;
+  const s = pool[Math.floor(Math.random() * pool.length)];
+  $("article").value = s.text;
+  truth = Number(s.label);
+  await classifyCurrent();
+}
+
+$("classify").addEventListener("click", () => classifyCurrent());
+$("rand-real").addEventListener("click", () => pickRandom(0));
+$("rand-fake").addEventListener("click", () => pickRandom(1));
+$("rand-any").addEventListener("click", () => pickRandom(null));
+$("article").addEventListener("input", () => { truth = null; $("single-truth").hidden = true; });
+$("clear").addEventListener("click", () => {
+  $("article").value = "";
+  truth = null;
+  resetResult();
 });
 
 /* ---------- batch of 32 ---------- */
@@ -211,7 +255,7 @@ function fillTable(probs) {
     });
     body.appendChild(tr);
   });
-  $("tablewrap").hidden = false;
+  $("tabledetails").hidden = false;
 }
 
 /* ---------- comparison chart ---------- */
