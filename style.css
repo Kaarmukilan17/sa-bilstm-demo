@@ -153,3 +153,9 @@ details .tablewrap{margin-top:10px}
   .masthead .school{font-size:1.4rem}
   .titlebar h1{font-size:1.3rem}
 }
+
+.vm{margin-top:8px;padding-top:6px;border-top:1px solid var(--line)}
+.vm p{margin:3px 0;font-size:.8rem;line-height:1.35;color:#444}
+.vm b{color:var(--navy)}
+.vm .sep{color:var(--orange);font-weight:bold;padding:0 2px}
+@media (max-width:820px){.vm{text-align:left}}
