@@ -139,3 +139,17 @@ details .tablewrap{margin-top:10px}
 .truth.bad{color:var(--fake)}
 
 .small{font-size:.85rem;margin-top:4px}
+
+.frame{max-width:1000px;margin:0 auto;background:var(--paper);border:2px solid var(--orange);border-radius:4px}
+.masthead{display:flex;align-items:center;gap:24px;padding:12px 20px}
+.masthead img{height:auto;max-width:34vw}
+.masthead .school{margin:0;font-size:1.9rem;line-height:1.2;font-weight:bold;color:#000}
+.masthead .univ{margin:4px 0 0;font-weight:bold;color:var(--navy);font-size:1.05rem}
+.titlebar{margin-top:18px}
+.titlebar h1{font-size:1.7rem;line-height:1.25}
+@media (max-width:820px){
+  .masthead{flex-direction:column;text-align:center}
+  .masthead img{max-width:60vw}
+  .masthead .school{font-size:1.4rem}
+  .titlebar h1{font-size:1.3rem}
+}
